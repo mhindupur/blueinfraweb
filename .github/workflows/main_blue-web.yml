@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: windows-latest
     permissions:
-      contents: read  # Required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -22,22 +22,23 @@ jobs:
         uses: NuGet/setup-nuget@v1.0.5
 
       - name: Restore NuGet packages
-        run: nuget restore
+        run: nuget restore path/to/your/project.csproj
 
       - name: Publish to folder
-        run: msbuild /nologo /verbosity:m /t:Build /t:pipelinePreDeployCopyAllFilesToOneFolder /p:_PackageTempDir="published"
+        run: msbuild path/to/your/project.csproj /nologo /verbosity:m /p:DeployOnBuild=true /p:WebPublishMethod=FileSystem /p:PublishUrl="${{ github.workspace }}/publish"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: ASP-app
-          path: published
+          path: '${{ github.workspace }}/publish'
 
   deploy:
     runs-on: windows-latest
     needs: build
     environment:
       name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
 
     steps:
       - name: Download artifact from build job
@@ -46,11 +47,13 @@ jobs:
           name: ASP-app
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v4
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'blue-web'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_160D3585FD0F4A2BBB17E12AE44BBFAB }}
           package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_160D3585FD0F4A2BBB17E12AE44BBFAB }}
+
 
 
